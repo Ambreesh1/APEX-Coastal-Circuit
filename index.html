@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101a20">
+  <meta name="description" content="APEX: an offline 3D coastal racing game. Three laps. Six drivers. One perfect racing line.">
+  <title>APEX — Coastal Circuit</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e2028'/%3E%3Cpath d='M12 48L29 14h9l15 34H42l-3-8H25l-4 8zm17-17h7l-3-10z' fill='%2366f0c5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="math.js"></script>
+  <script defer src="track.js"></script>
+  <script defer src="physics.js"></script>
+  <script defer src="geometry.js"></script>
+  <script defer src="world.js"></script>
+  <script defer src="renderer.js"></script>
+  <script defer src="audio.js"></script>
+  <script defer src="input.js"></script>
+  <script defer src="ui.js"></script>
+  <script defer src="game.js"></script>
+</head>
+<body>
+  <canvas id="scene" aria-label="3D coastal racing circuit"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="wordmark" href="#" id="brand" aria-label="APEX main menu">APEX<span class="brand-slash">//</span></a>
+    <div class="event-label"><span class="live-dot"></span> COASTAL CIRCUIT <span class="separator">/</span> GOLDEN HOUR</div>
+    <div class="top-actions">
+      <button class="icon-button" id="sound" aria-label="Toggle sound" aria-pressed="true" title="Toggle sound (M)">SOUND <span id="sound-state">ON</span></button>
+      <button class="icon-button" id="pause-button" aria-label="Pause race" title="Pause (Esc)" hidden>Ⅱ</button>
+    </div>
+  </header>
+  <main id="menu" class="screen menu-screen">
+    <div class="menu-copy">
+      <div class="eyebrow"><span class="short-line"></span> THE OPEN ROAD IS CALLING</div>
+      <h1>CHASE THE<br><em>HORIZON.</em></h1>
+      <p class="intro">Salt in the air. Rubber on the asphalt.<br>Find your line on the Coastal Circuit.</p>
+      <div class="race-specs"><div><strong>03</strong><span>LAPS</span></div><div><strong>06</strong><span>DRIVERS</span></div><div><strong id="track-length">1.9</strong><span>KM CIRCUIT</span></div></div>
+      <div class="menu-settings"><label for="difficulty">RACE PACE</label><select id="difficulty"><option value="rookie">Rookie</option><option value="sport" selected>Sport</option><option value="pro">Pro</option></select><label for="quality">GRAPHICS</label><select id="quality"><option value="auto" selected>Auto</option><option value="high">High</option><option value="low">Performance</option></select></div>
+      <button id="start" class="primary-button">START RACE <span>↗</span></button>
+      <div class="menu-record">CIRCUIT BEST <span id="menu-best">— SET YOUR FIRST LAP</span></div>
+    </div>
+    <div class="track-card glass"><div class="card-heading"><span>THE CIRCUIT</span><span class="mint">01 / COASTLINE</span></div><canvas id="menu-map" width="360" height="220" aria-label="Coastal Circuit track map"></canvas><div class="track-card-footer"><span><i class="map-dot"></i> START / FINISH</span><span>8 SECTORS</span></div></div>
+    <footer class="menu-footer"><span>BUILT FOR THE PERFECT LAP.</span><span>WASD / ARROWS <b>DRIVE</b> <i>·</i> SPACE <b>DRIFT</b></span></footer>
+  </main>
+  <section id="hud" hidden aria-label="Race information">
+    <div class="race-top">
+      <div class="position-panel glass"><span class="tiny-label">POSITION</span><div><strong id="position">6</strong><span class="muted"> / 6</span></div></div>
+      <div class="lap-panel glass"><span class="tiny-label">LAP</span><div><strong id="lap">1</strong><span class="muted"> / 3</span></div><div class="sector-dots" id="sectors" aria-label="Checkpoint progress"></div></div>
+      <div class="timing-panel glass"><div><span>RACE TIME</span><strong id="timer">00:00.000</strong></div><div><span>CURRENT LAP</span><strong id="lap-time">00:00.000</strong></div><div><span class="mint">BEST LAP</span><strong id="best-lap" class="mint">—</strong></div></div>
+    </div>
+    <div class="leaderboard glass" id="leaderboard"></div>
+    <div class="race-map glass"><div class="card-heading"><span>COASTAL CIRCUIT</span><span class="mint">LIVE</span></div><canvas id="race-map" width="280" height="200" aria-label="Live race map"></canvas><div id="race-hint">BRAKE EARLY. EXIT FAST.</div></div>
+    <div class="speed-panel"><div id="drift-label">GRIP</div><div class="speed-reading"><strong id="speed">000</strong><div><span>KM/H</span><b id="gear">N</b></div></div><div class="rev-track"><div id="rev-bar"></div></div><div class="speed-footer"><span id="car-status">APEX GT / RWD</span><span id="throttle-status">READY</span></div></div>
+    <div class="race-controls"><span><kbd>SPACE</kbd> DRIFT</span><span><kbd>C</kbd> CAMERA</span><span><kbd>X</kbd> RECOVER</span><span><kbd>ESC</kbd> PAUSE</span></div>
+    <div class="race-progress"><div id="progress-fill"></div></div>
+  </section>
+  <div id="countdown" aria-live="assertive" hidden><span id="countdown-label">GET READY</span><strong id="countdown-number">3</strong><div class="start-lights"><i></i><i></i><i></i></div></div>
+  <div id="toast" role="status"></div><div id="collision-flash" aria-hidden="true"></div>
+  <section id="pause-screen" class="screen overlay-screen" hidden><div class="dialog glass"><div class="eyebrow">TAKE A BREATHER</div><h2>RACE PAUSED.</h2><p>Your next apex can wait.</p><button id="resume" class="primary-button">RESUME RACE <span>↗</span></button><button id="restart" class="secondary-button">RESTART RACE</button><button id="exit" class="text-button">BACK TO MAIN MENU</button><div class="control-guide"><span><kbd>W / ↑</kbd> Accelerate</span><span><kbd>S / ↓</kbd> Brake</span><span><kbd>A D / ← →</kbd> Steer</span><span><kbd>SPACE</kbd> Drift</span><span><kbd>X</kbd> Recover car</span><span><kbd>M</kbd> Sound</span></div></div></section>
+  <section id="results" class="screen overlay-screen" hidden><div class="dialog results-dialog glass"><div class="eyebrow">CHEQUERED FLAG</div><h2 id="result-title">RACE COMPLETE.</h2><div class="result-hero"><div><span class="tiny-label">FINAL POSITION</span><strong id="result-position">1<span>ST</span></strong></div><div><span class="tiny-label">TOTAL TIME</span><strong id="result-time">02:15.000</strong><span class="result-best" id="result-best"></span></div></div><div id="result-laps" class="result-laps"></div><div id="result-table" class="result-table"></div><button id="again" class="primary-button">RACE AGAIN <span>↗</span></button><button id="result-menu" class="text-button">BACK TO MAIN MENU</button></div></section>
+  <section id="error-screen" class="screen overlay-screen" hidden><div class="dialog glass"><h2>ENGINE OFFLINE.</h2><p id="error-message">WebGL is not available. Enable hardware acceleration or try another browser.</p><button class="primary-button" onclick="location.reload()">TRY AGAIN</button></div></section>
+  <div id="touch-controls" hidden aria-label="Touch driving controls"><div class="touch-steering"><button data-control="left" aria-label="Steer left">◀</button><button data-control="right" aria-label="Steer right">▶</button></div><div class="touch-pedals"><button data-control="drift" class="touch-drift">DRIFT</button><button data-control="brake">BRAKE</button><button data-control="throttle" class="touch-gas">GAS</button></div></div>
+  <noscript><div class="noscript">Enable JavaScript to race on the Coastal Circuit.</div></noscript>
+</body>
+</html>

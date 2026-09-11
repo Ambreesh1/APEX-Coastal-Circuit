@@ -1,0 +1,11 @@
+{
+  "name": "apex-coastal-circuit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline, dependency-free 3D browser racing game",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests.js",
+    "check": "node --check math.js && node --check track.js && node --check physics.js && node --check renderer.js && node --check audio.js && node --check game.js && node tests.js"
+  }
+}
