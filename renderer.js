@@ -85,6 +85,16 @@
       for(const [name,offset] of [['aPosition',0],['aNormal',12],['aColor',24]]){gl.enableVertexAttribArray(l[name]);gl.vertexAttribPointer(l[name],3,gl.FLOAT,false,36,offset);}
       gl.uniformMatrix4fv(l.uModel,false,model);gl.uniform1f(l.uGloss,gloss);gl.uniform1f(l.uOpacity,alpha);gl.drawArrays(gl.TRIANGLES,0,mesh.count);
     }
+    setPlayer(setup){
+      if(this.playerModel===setup.id)return;
+      const mesh=this.upload(A.carGeometry(setup.color,setup.shape));
+      this.gl.deleteBuffer(this.cars[0].buffer);this.cars[0]=mesh;this.playerModel=setup.id;
+    }
+    setTrack(track){
+      if(this.track===track)return;
+      const world=this.upload(A.buildWorld(track));
+      this.gl.deleteBuffer(this.world.buffer);this.world=world;this.track=track;this.reset();
+    }
     reset(){this.cameraReady=false;this.skids=[];this.particles=[];this.emission=0;}
     updateEffects(cars,dt,active){
       this.emission+=dt;

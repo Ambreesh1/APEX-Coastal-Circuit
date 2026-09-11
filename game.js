@@ -3,13 +3,15 @@
   'use strict';
   class Game{
     constructor(){
-      this.track=new A.Track();this.ui=new A.UI(this.track);this.audio=new A.RaceAudio();
+      this.profile=new A.Profile();
+      this.track=new A.Track(this.profile.selection.trackId);this.ui=new A.UI(this.track);this.audio=new A.RaceAudio();
       this.race=new A.Race(this.track);this.state='menu';this.previousState='racing';
       this.clock=0;this.countdownTime=3;this.goUntil=0;this.accumulator=0;this.hudClock=0;
       this.best=Infinity;this.lastCountdown=null;this.lastFrame=0;this.stopped=false;
-      try{const best=Number(localStorage.getItem('apex.coastal.best.v1'));if(Number.isFinite(best)&&best>0)this.best=best;this.audio.muted=localStorage.getItem('apex.sound')==='off';}catch{/* Storage can be unavailable on file URLs/private browsing. */}
+      try{this.audio.muted=localStorage.getItem('apex.sound')==='off';}catch{/* Storage can be unavailable on file URLs/private browsing. */}
       this.updateRecord();this.renderer=new A.Renderer(this.ui.nodes.scene,this.track);
-      this.input=new A.Input(action=>this.action(action));this.bind();this.setState('menu');this.soundLabel();
+      this.input=new A.Input(action=>this.action(action));this.bind();this.setState('menu');this.soundLabel();this.ui.profile(this.profile);
+      this.ui.nodes['car-select'].value=this.profile.selection.carId;this.ui.nodes['track-select'].value=this.profile.selection.trackId;this.ui.nodes.tuning.value=this.profile.selection.tuning;this.preview();
       this.frame=this.frame.bind(this);requestAnimationFrame(this.frame);
     }
     bind(){
@@ -19,19 +21,28 @@
       this.ui.nodes.brand.addEventListener('click',event=>{event.preventDefault();if(this.state==='racing'||this.state==='countdown')this.pause();else if(this.state!=='menu')this.menu();});
       this.ui.nodes.quality.addEventListener('change',event=>{this.renderer.quality=event.target.value;});
       this.ui.nodes.scene.addEventListener('webglcontextlost',event=>{event.preventDefault();this.pause();this.stopped=true;this.fail('The graphics context was interrupted. Close other GPU-heavy tabs and choose Try Again.');});
+      for(const id of ['car-select','tuning','track-select'])this.ui.nodes[id].addEventListener('change',()=>{if(this.state==='menu')this.preview();});
       document.addEventListener('fullscreenchange',()=>{this.renderer.cameraReady=false;});
     }
-    updateRecord(){this.ui.text('menu-best',Number.isFinite(this.best)?A.formatTime(this.best):'— SET YOUR FIRST LAP');}
+    raceOptions(){return this.profile.select({carId:this.ui.nodes['car-select'].value,trackId:this.ui.nodes['track-select'].value,tuning:this.ui.nodes.tuning.value});}
+    preview(){
+      const options=this.raceOptions();
+      if(this.track.id!==options.trackId){const track=new A.Track(options.trackId);this.renderer.setTrack(track);this.track=track;this.ui.setTrack(track);}
+      this.race=new A.Race(this.track,this.ui.nodes.difficulty.value,options);
+      this.renderer.setPlayer(this.race.player.setup);this.renderer.reset();this.ui.carDetails(this.race.player.setup);
+      this.profile.save();this.ui.profile(this.profile);this.updateRecord();
+    }
+    updateRecord(){this.best=this.profile.best(this.track.id);this.ui.text('menu-best',Number.isFinite(this.best)?A.formatTime(this.best):'— SET YOUR FIRST LAP');}
     soundLabel(){this.ui.text('sound-state',this.audio.muted?'OFF':'ON');this.ui.nodes.sound.setAttribute('aria-pressed',String(!this.audio.muted));}
     setState(state){this.state=state;this.ui.state(state,this.input?.touch||false);}
     start(){
-      this.input.clear();this.race=new A.Race(this.track,this.ui.nodes.difficulty.value);this.renderer.reset();
+      this.input.clear();this.preview();
       this.countdownTime=3;this.lastCountdown=3;this.accumulator=0;this.hudClock=0;this.goUntil=0;
       this.setState('countdown');this.ui.countdown(3);this.ui.hud(this.race,this.input.read(),this.best);
       this.audio.start().then(()=>this.audio.countdown(false));this.ui.toastUntil=0;
     }
     menu(){
-      this.input.clear();this.race=new A.Race(this.track,this.ui.nodes.difficulty.value);this.renderer.reset();this.accumulator=0;
+      this.input.clear();this.preview();this.accumulator=0;
       this.setState('menu');this.updateRecord();this.audio.update(this.race.player,false);this.ui.toastUntil=0;
     }
     pause(){
@@ -66,10 +77,12 @@
         if(event.car.id!==0)continue;
         if(event.type==='lap'){
           const record=event.time<this.best;
-          if(record){this.best=event.time;try{localStorage.setItem('apex.coastal.best.v1',String(this.best));}catch{}this.updateRecord();}
-          if(event.car.completedLaps<3){this.audio.lap();this.ui.toast(`${record?'NEW BEST / ':''}LAP ${event.car.completedLaps}  ${A.formatTime(event.time)}${event.car.completedLaps===2?'  /  FINAL LAP':''}`,this.clock,3);}
+          if(record){this.profile.record(this.track.id,event.time);this.updateRecord();}
+          if(event.car.completedLaps<this.race.totalLaps){this.audio.lap();this.ui.toast(`${record?'NEW BEST / ':''}LAP ${event.car.completedLaps}  ${A.formatTime(event.time)}${event.car.completedLaps===this.race.totalLaps-1?'  /  FINAL LAP':''}`,this.clock,3);}
         }
         if(event.type==='finish'){
+          const reward=this.profile.complete(this.race);this.ui.profile(this.profile);
+          this.ui.text('result-reward',reward?`+${reward.xp} XP · LEVEL ${reward.level}${reward.unlocks.length?` · UNLOCKED: ${reward.unlocks.join(', ')}`:''}${this.profile.saved?'':' · Session only: storage unavailable'}`:'');
           this.setState('finished');this.ui.countdown(null);this.ui.results(this.race);this.audio.finish();this.input.clear();this.ui.toastUntil=0;
         }
       }
@@ -77,11 +90,11 @@
     frame(timestamp){
       if(this.stopped)return;
       try{
-        const dt=Math.min(.1,this.lastFrame?(timestamp-this.lastFrame)/1000:1/60);this.lastFrame=timestamp;this.clock+=dt;
+        const dt=Math.min(A.CONFIG.maxFrame,this.lastFrame?(timestamp-this.lastFrame)/1000:1/60);this.lastFrame=timestamp;this.clock+=dt;
         const input=this.input.read();
         if(this.state==='racing'||this.state==='countdown'){
           this.accumulator+=dt;
-          while(this.accumulator>=1/120){this.tick(1/120,input);this.accumulator-=1/120;if(this.state==='finished'){this.accumulator=0;break;}}
+          while(this.accumulator>=A.CONFIG.step){this.tick(A.CONFIG.step,input);this.accumulator-=A.CONFIG.step;if(this.state==='finished'){this.accumulator=0;break;}}
         }
         if(this.state==='racing'&&this.clock>this.goUntil)this.ui.countdown(null);
         this.hudClock+=dt;if(this.hudClock>.08){this.hudClock=0;if(['racing','countdown','paused'].includes(this.state))this.ui.hud(this.race,input,this.best);}

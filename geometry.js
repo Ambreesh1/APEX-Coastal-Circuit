@@ -51,7 +51,7 @@
     }
     data(){return new Float32Array(this.vertices);}
   }
-  function carGeometry(hex){
+  function carGeometry(hex,shape='gt'){
     const g=new Geometry(),c=A.color(hex),dark=c.map(v=>v*.65),light=c.map(v=>Math.min(1,v*1.12));
     g.box(0,.42,0,2.05,.32,4.5,'#111d24');
     // Low wedge body with a broad shoulder and tapered nose.
@@ -65,12 +65,15 @@
     // Sloping windshield, rear glass, roof and side glazing.
     const low=[[-.87,.9,-1.23],[.87,.9,-1.23],[.83,.83,1.02],[-.83,.83,1.02]];
     const roof=[[-.69,1.43,-.65],[.69,1.43,-.65],[.65,1.4,.25],[-.65,1.4,.25]];
+    if(shape==='compact')for(const p of roof){p[1]+=.2;p[2]-=.22;}
+    if(shape==='coupe')for(const p of roof){p[1]-=.13;p[2]-=.12;}
+    if(shape==='muscle'){for(const p of roof)p[0]*=1.12;g.box(0,.93,1.45,.65,.22,.75,dark);}
     g.quad(low[3],low[2],roof[2],roof[3],'#274758');
     g.quad(low[0],roof[0],roof[1],low[1],'#152d3d');
     g.quad(low[0],low[3],roof[3],roof[0],'#193445');
     g.quad(low[1],roof[1],roof[2],low[2],'#193445');
     g.quad(...roof,c,[0,1,0]);
-    g.box(0,1.445,-.18,.22,.02,.87,'#d6f7ed');
+    g.box(0,roof[0][1]+.015,(roof[0][2]+roof[2][2])/2,.22,.02,.87,'#d6f7ed');
     g.box(0,.815,1.55,.18,.025,1.03,'#c2f5e1');
     for(const side of [-1,1]){
       g.box(side*.76,.72,2.26,.4,.085,.05,'#e4ffff');

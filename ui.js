@@ -4,10 +4,33 @@
   class UI{
     constructor(track){
       this.track=track;this.nodes={};document.querySelectorAll('[id]').forEach(el=>this.nodes[el.id]=el);
-      this.nodes['track-length'].textContent=(track.length/1000).toFixed(2);
-      this.nodes.sectors.innerHTML='<i></i>'.repeat(track.checkpoints);
-      this.toastUntil=0;this.lastCountdown=null;
-      this.drawMap(this.nodes['menu-map']);
+      this.toastUntil=0;this.lastCountdown=null;this.setTrack(track);
+    }
+    setTrack(track){
+      this.track=track;const t=track.definition;
+      this.text('track-length',(track.length/1000).toFixed(2));this.nodes.sectors.innerHTML='<i></i>'.repeat(track.checkpoints);
+      this.text('menu-laps',String(A.CONFIG.laps).padStart(2,'0'));this.text('total-laps',` / ${A.CONFIG.laps}`);
+      for(const id of ['event-track','race-track'])this.text(id,t.name.toUpperCase());
+      this.text('event-environment',t.environment.toUpperCase());this.text('track-theme',t.theme.toUpperCase());
+      this.text('track-sectors',`${track.checkpoints} SECTORS`);this.text('track-intro',`${t.environment}. Find your line on ${t.name}.`);
+      this.text('track-details',`${t.difficulty} · ${t.corners} corners · ${track.halfWidth*2} m road · ${t.multiplier}× XP · Recommended: ${t.recommended}`);
+      this.nodes['menu-map'].setAttribute('aria-label',`${t.name} track map`);this.nodes.scene.setAttribute('aria-label',`3D ${t.name} racing circuit`);
+      document.title=`APEX — ${t.name}`;this.drawMap(this.nodes['menu-map']);
+    }
+    profile(profile){
+      this.garage(profile.level);
+      const select=this.nodes['track-select'],selected=select.value;
+      select.innerHTML=A.TRACKS.map(t=>`<option value="${t.id}" ${t.level>profile.level?'disabled':''}>${t.name}${t.level>profile.level?` / LV ${t.level}`:''}</option>`).join('');
+      select.value=A.TRACKS.some(t=>t.id===selected&&t.level<=profile.level)?selected:'coastal';
+      this.text('profile-status',`LEVEL ${profile.level} · ${profile.level===A.CONFIG.maxLevel?'MAX LEVEL':`${profile.xp%A.CONFIG.xpPerLevel} / ${A.CONFIG.xpPerLevel} XP`} · ${profile.races} races${profile.saved?'':' · Progress is session-only (storage unavailable)'}`);
+    }
+    garage(level){
+      const select=this.nodes['car-select'],selected=select.value;
+      select.innerHTML=A.CARS.map(c=>`<option value="${c.id}" ${c.level>level?'disabled':''}>${c.name}${c.level>level?` / LV ${c.level}`:''}</option>`).join('');
+      select.value=A.CARS.some(c=>c.id===selected&&c.level<=level)?selected:'gt';
+    }
+    carDetails(c){
+      this.text('car-details',`${c.type} · Accel ${c.acceleration.toFixed(1)} · Speed ${Math.round(c.topSpeed*3.6)} km/h · Grip ${c.grip.toFixed(1)} · Brake ${c.braking.toFixed(1)} — ${c.pros}. ${c.cons}.`);
     }
     text(id,value){this.nodes[id].textContent=value;}
     show(id,visible){this.nodes[id].hidden=!visible;}
@@ -29,14 +52,15 @@
     drawMap(canvas,cars=null){
       const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
       ctx.clearRect(0,0,w,h);
-      const scale=Math.min((w-45)/660,(h-25)/665),ox=w/2-20*scale,oy=h/2;
+      const b=this.track.bounds,scale=Math.min((w-45)/(b.maxX-b.minX),(h-45)/(b.maxZ-b.minZ));
+      const ox=w/2-(b.minX+b.maxX)*.5*scale,oy=h/2-(b.minZ+b.maxZ)*.5*scale;
       const p=(x,z)=>[ox+x*scale,oy+z*scale];
       ctx.lineCap='round';ctx.lineJoin='round';
       const path=()=>{ctx.beginPath();this.track.points.forEach((pt,i)=>{const [x,y]=p(pt.x,pt.z);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();};
       path();ctx.strokeStyle='#9dc2b316';ctx.lineWidth=14;ctx.stroke();
       path();ctx.strokeStyle='#71978b';ctx.lineWidth=4;ctx.stroke();
-      for(let i=1;i<8;i++){
-        const q=this.track.at(this.track.length*i/8),[x,y]=p(q.x,q.z);
+      for(let i=1;i<this.track.checkpoints;i++){
+        const q=this.track.at(this.track.length*i/this.track.checkpoints),[x,y]=p(q.x,q.z);
         ctx.fillStyle='#a9c9bd';ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();
       }
       const start=this.track.at(0),[sx,sy]=p(start.x,start.z);
@@ -53,16 +77,16 @@
     row(car,index,right){return `<div class="driver-row ${car.id===0?'you':''}"><span class="driver-pos">${index+1}</span><i class="driver-color" style="background:${car.color}"></i><span class="driver-name">${car.name}</span><span class="driver-gap">${right}</span></div>`;}
     hud(race,input,best){
       const c=race.player,order=race.standings(),speed=Math.round(c.speed*3.6);
-      this.text('position',order.indexOf(c)+1);this.text('lap',Math.min(3,c.completedLaps+1));
+      this.text('position',order.indexOf(c)+1);this.text('lap',Math.min(race.totalLaps,c.completedLaps+1));
       this.text('timer',A.formatTime(race.time));this.text('lap-time',A.formatTime(race.time-c.lapStart));this.text('best-lap',A.formatTime(best));
       this.text('speed',String(speed).padStart(3,'0'));this.text('gear',speed<2?'N':Math.min(6,1+Math.floor(c.speed/13)));
       this.nodes['rev-bar'].style.width=`${speed<2?3:20+(c.speed%13)/13*80}%`;
-      this.nodes['progress-fill'].style.width=`${A.clamp(c.distance/(race.track.length*3),0,1)*100}%`;
+      this.nodes['progress-fill'].style.width=`${A.clamp(c.distance/(race.track.length*race.totalLaps),0,1)*100}%`;
       this.nodes['drift-label'].classList.toggle('drifting',c.drifting||c.slip>.17);
       this.text('drift-label',c.offroad?'OFF TRACK':c.drifting?'DRIFTING':c.slip>.17?'SLIDING':'GRIP');
-      this.text('car-status',c.offroad?'GRASS / LOW TRACTION':'APEX GT / RWD');
+      this.text('car-status',c.offroad?'OFFROAD / LOW TRACTION':`${c.setup.name.toUpperCase()} / RWD`);
       this.text('throttle-status',input.brake?'BRAKING':input.throttle?'THROTTLE':'COASTING');
-      this.nodes.sectors.querySelectorAll('i').forEach((el,i)=>el.classList.toggle('passed',i<c.gates%8));
+      this.nodes.sectors.querySelectorAll('i').forEach((el,i)=>el.classList.toggle('passed',i<c.gates%race.track.checkpoints));
       this.nodes.leaderboard.innerHTML=order.map((car,i)=>this.row(car,i,car.id===0?'YOU':car.finishTime!==null?'FIN':`${Math.abs(Math.round(car.distance-c.distance))}m`)).join('');
       this.drawMap(this.nodes['race-map'],race.cars);
       const curve=this.track.at(c.near.s+60).curve;
@@ -70,11 +94,11 @@
     }
     results(race){
       const c=race.player,order=race.standings(),position=order.indexOf(c)+1,best=Math.min(...c.laps);
-      this.text('result-title',position===1?'THE COAST IS YOURS.':position<=3?'PODIUM FINISH.':'RACE COMPLETE.');
+      this.text('result-title',position===1?'THE CIRCUIT IS YOURS.':position<=3?'PODIUM FINISH.':'RACE COMPLETE.');
       this.nodes['result-position'].innerHTML=`${position}<span>${['','ST','ND','RD','TH','TH','TH'][position]}</span>`;
       this.text('result-time',A.formatTime(c.finishTime));this.text('result-best',`BEST LAP  ${A.formatTime(best)}`);
       this.nodes['result-laps'].innerHTML=c.laps.map((t,i)=>`<div>LAP 0${i+1}<strong class="${t===best?'mint':''}">${A.formatTime(t)}</strong></div>`).join('');
-      this.nodes['result-table'].innerHTML=order.map((car,i)=>this.row(car,i,car.finishTime!==null?A.formatTime(car.finishTime):`LAP ${Math.min(3,car.completedLaps+1)} / 3`)).join('');
+      this.nodes['result-table'].innerHTML=order.map((car,i)=>this.row(car,i,car.finishTime!==null?A.formatTime(car.finishTime):`LAP ${Math.min(race.totalLaps,car.completedLaps+1)} / ${race.totalLaps}`)).join('');
     }
   }
   A.UI=UI;

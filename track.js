@@ -2,11 +2,12 @@
 (function (A) {
   'use strict';
   class Track {
-    constructor() {
-      this.halfWidth = 9;
-      this.wallOffset = 13;
-      this.checkpoints = 8;
-      this.control = [[0,-300],[160,-300],[280,-220],[310,-60],[235,70],[295,215],[155,310],[-35,295],[-215,200],[-265,40],[-180,-70],[-235,-215],[-110,-300]];
+    constructor(id='coastal') {
+      this.definition=A.trackDefinition(id);this.id=this.definition.id;
+      this.halfWidth=this.definition.halfWidth;
+      this.wallOffset=this.definition.wallOffset;
+      this.checkpoints=this.definition.checkpoints;
+      this.control=this.definition.control.map(p=>p.slice());
       const raw = [], n = this.control.length;
       for (let i = 0; i < n * 100; i++) {
         const u = i / 100, k = Math.floor(u), t = u - k;
@@ -35,6 +36,7 @@
       this.points.forEach((p,i) => {
         p.curve = A.angle(this.points[(i+3)%this.count].heading-this.points[A.mod(i-3,this.count)].heading)/(6*this.step);
       });
+      this.bounds={minX:Math.min(...this.points.map(p=>p.x)),maxX:Math.max(...this.points.map(p=>p.x)),minZ:Math.min(...this.points.map(p=>p.z)),maxZ:Math.max(...this.points.map(p=>p.z))};
     }
     at(distance, offset = 0) {
       const u = A.mod(distance,this.length)/this.step, i = Math.floor(u), t = u-i;

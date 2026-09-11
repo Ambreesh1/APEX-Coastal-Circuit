@@ -1,0 +1,11 @@
+/* Setup controls stay reachable on short desktop and mobile viewports. */
+.menu-screen{overflow-y:auto;align-items:flex-start;padding-top:110px}
+.menu-copy{max-width:580px;padding-bottom:45px}
+.menu-copy h1{font-size:clamp(49px,6vw,82px);margin:18px 0}
+.menu-settings{flex-wrap:wrap}
+.setup-details{max-width:440px;font-size:11px;line-height:1.6;color:var(--muted);margin:8px 0 14px}
+.menu-footer{position:fixed;pointer-events:none}
+#profile-status{color:var(--mint)}
+#result-reward{color:var(--mint);font-size:12px;line-height:1.6;margin:10px 0 16px}
+@media(max-width:700px){.menu-screen{padding-top:80px}.menu-copy{max-width:100%}.setup-details{font-size:10px}.menu-footer{display:none}}
+@media(max-height:620px){.menu-screen{padding-top:65px}.menu-copy h1{font-size:48px}.menu-footer{display:none}}

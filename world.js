@@ -2,26 +2,28 @@
 (function (A) {
   'use strict';
   function buildWorld(track){
-    const g=new A.Geometry(),rnd=A.random(2206);
+    const g=new A.Geometry(),rnd=A.random(2206),width=track.halfWidth,theme=track.definition.theme;
     const point=(s,offset,y=.045)=>{const p=track.at(s,offset);return[p.x,y,p.z];};
     const strip=(s0,s1,a,b,color,y=.045)=>g.quad(point(s0,a,y),point(s1,a,y),point(s1,b,y),point(s0,b,y),color,[0,1,0]);
     const boxAt=(s,o,y,w,h,d,color)=>{const p=track.at(s,o);g.box(p.x,y,p.z,w,h,d,color,p.heading);};
-    g.box(0,-1.1,0,2100,2,2100,'#527964');
+    g.box(0,-1.1,0,2100,2,2100,theme==='desert'?'#bd9b68':theme==='mountain'?'#476750':'#527964');
     // Coastal shelf, sand and sea. The eastern side of the course overlooks water.
+    if(theme==='coastal'){
     g.box(1050,-.35,0,1200,.1,3200,'#377e89');
     g.box(451,-.05,0,35,.12,1450,'#b9b796');
     for(let i=0;i<65;i++){
       const x=475+rnd()*1000,z=(rnd()-.5)*2200;
       g.box(x,-.27,z,10+rnd()*75,.015,.3+rnd()*.7,'#6bacae');
     }
+    }
     for(let i=0;i<track.count;i++){
       const s=i*track.step,e=s+track.step;
-      strip(s,e,-12.8,12.8,i%5===0?'#9b9b81':'#91957d',.006);
+      strip(s,e,-track.wallOffset+.2,track.wallOffset-.2,i%5===0?'#9b9b81':'#91957d',.006);
       const v=.205+rnd()*.014;
-      strip(s,e,-9,9,[v*.9,v,v*1.05],.04);
+      strip(s,e,-width,width,[v*.9,v,v*1.05],.04);
       for(const sign of [-1,1]){
-        strip(s,e,sign*9,sign*10,i%4<2?'#e6e3d2':'#cf6458',.052);
-        strip(s,e,sign*8.55,sign*8.68,'#e6e4d7',.058);
+        strip(s,e,sign*width,sign*(width+1),i%4<2?'#e6e3d2':'#cf6458',.052);
+        strip(s,e,sign*(width-.45),sign*(width-.32),'#e6e4d7',.058);
         const p0=point(s,sign*track.wallOffset,.78),p1=point(e,sign*track.wallOffset,.78);
         g.beam(p0,p1,.38,.7,i%12<6?'#d0d5ce':'#626e6c');
         if(i%4===0){boxAt(s,sign*track.wallOffset,.52,.2,1,.22,'#475956');}
@@ -34,7 +36,7 @@
       }
     }
     // The start line and six painted grid boxes.
-    for(let row=0;row<3;row++)for(let col=0;col<18;col++)strip(row*.65,(row+1)*.65,-9+col,-8+col,(row+col)%2?'#edf0e3':'#202b31',.075);
+    for(let row=0;row<3;row++)for(let col=0;col<18;col++)strip(row*.65,(row+1)*.65,-width+col*width/9,-width+(col+1)*width/9,(row+col)%2?'#edf0e3':'#202b31',.075);
     for(let i=0;i<6;i++){
       const s=-10-Math.floor(i/2)*8,o=(i%2===0?-1:1)*3;
       strip(s-2.6,s+2.6,o-1.4,o-1.3,'#d1d8c7',.07);
@@ -54,9 +56,9 @@
     boxAt(3,-11.5,3.4,.65,6.8,.65,'#233b3d');boxAt(3,11.5,3.4,.65,6.8,.65,'#233b3d');
     sign(3,0,6.5,24);
     for(let i=0;i<5;i++)boxAt(3,-2+i,4.8,.45,.45,.45,'#343e3a');
-    for(let cp=1;cp<8;cp++)for(const side of [-1,1]){
-      boxAt(track.length*cp/8,side*14,1.6,.3,3.2,.3,'#75d9bb');
-      boxAt(track.length*cp/8,side*14,3.3,1.1,.6,.22,'#c6f3d5');
+    for(let cp=1;cp<track.checkpoints;cp++)for(const side of [-1,1]){
+      boxAt(track.length*cp/track.checkpoints,side*(track.wallOffset+1),1.6,.3,3.2,.3,'#75d9bb');
+      boxAt(track.length*cp/track.checkpoints,side*(track.wallOffset+1),3.3,1.1,.6,.22,'#c6f3d5');
     }
     // Pit complex and spectator grandstands along the main straight.
     for(let i=0;i<9;i++){
@@ -106,10 +108,12 @@
     for(let i=0;i<470;i++){
       const x=-470+rnd()*880,z=-490+rnd()*1000,p=track.nearest(x,z);
       if(p.distance<21 || (p.s<145 && p.distance<60) || (p.s>track.length-40 && p.distance<40))continue;
-      tree(x,z,4+rnd()*8,x>270 || i%9===0);
+      if(theme==='desert'){
+        if(i%4===0){const size=2+rnd()*5;g.cylinder(x,size/2,z,size,size*.65,size,'#a58058',6);}
+      }else tree(x,z,4+rnd()*8,theme==='coastal'&&(x>270 || i%9===0));
     }
     // Low-rise coastal town, balconies and illuminated window strips.
-    for(let i=0;i<45;i++){
+    for(let i=0;i<(theme==='coastal'?45:0);i++){
       const x=-380+rnd()*220,z=-110+rnd()*280,p=track.nearest(x,z);
       if(p.distance<45)continue;
       const w=10+rnd()*17,d=10+rnd()*17,h=7+rnd()*35;
@@ -124,9 +128,9 @@
     // Layered faceted mountains frame the inland horizon.
     for(let i=0;i<42;i++){
       const a=i/42*Math.PI*2,r=780+rnd()*340,x=Math.cos(a)*r,z=Math.sin(a)*r;
-      if(x>520)continue;
+      if(theme==='coastal'&&x>520)continue;
       const h=90+rnd()*180;
-      g.cylinder(x,h/2-10,z,140+rnd()*170,8,h,i%2?'#657f79':'#78908a',7);
+      g.cylinder(x,h/2-10,z,140+rnd()*170,theme==='desert'?90:8,h,theme==='desert'?'#a27c59':i%2?'#657f79':'#78908a',7);
     }
     return g;
   }
